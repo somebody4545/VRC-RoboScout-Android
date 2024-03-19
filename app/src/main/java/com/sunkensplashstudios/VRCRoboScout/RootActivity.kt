@@ -406,48 +406,31 @@ fun TabView(tabBarItems: List<TabBarItem>, navController: NavController, selecte
     ) {
         // looping over each tab to generate the views and navigation for each item
         tabBarItems.forEachIndexed { index, tabBarItem ->
-            if (userSettings.getMinimalisticMode()) {
-                NavigationBarItem(
-                    selected = false,
-                    onClick = {
-                        onSelectedTabIndexChange(index)
-                        navController.clearBackStack(navController.graph.startDestinationId)
-                        navController.navigate(tabBarItem.direction)
-                    },
-                    icon = {
-                        TabBarIconView(
-                            isSelected = selectedTabIndex == index,
-                            selectedIcon = tabBarItem.selectedIcon,
-                            unselectedIcon = tabBarItem.unselectedIcon,
-                            title = tabBarItem.title
-                        )
-                    }
-                )
-            } else {
-                NavigationBarItem(
-                    selected = false,
-                    onClick = {
-                        onSelectedTabIndexChange(index)
-                        navController.clearBackStack(navController.graph.startDestinationId)
-                        navController.navigate(tabBarItem.direction)
-                    },
-                    icon = {
-                        TabBarIconView(
-                            isSelected = selectedTabIndex == index,
-                            selectedIcon = tabBarItem.selectedIcon,
-                            unselectedIcon = tabBarItem.unselectedIcon,
-                            title = tabBarItem.title,
-                        )
-                    },
-                    label = {
+            NavigationBarItem(
+                selected = false,
+                onClick = {
+                    onSelectedTabIndexChange(index)
+                    navController.clearBackStack(navController.graph.startDestinationId)
+                    navController.navigate(tabBarItem.direction)
+                },
+                icon = {
+                    TabBarIconView(
+                        isSelected = selectedTabIndex == index,
+                        selectedIcon = tabBarItem.selectedIcon,
+                        unselectedIcon = tabBarItem.unselectedIcon,
+                        title = tabBarItem.title,
+                    )
+                },
+                label = if (!userSettings.getMinimalisticMode()) {
+                    {
                         Text(
                             text = tabBarItem.title,
                             fontSize = 9.sp,
                             color = if (selectedTabIndex == index) MaterialTheme.colorScheme.button else MaterialTheme.colorScheme.onSurface
                         )
                     }
-                )
-            }
+                } else {{}}
+            )
         }
     }
 }
