@@ -462,6 +462,7 @@ fun TeamLookup(lookupViewModel: LookupViewModel, navController: NavController) {
                             thickness = 0.5.dp,
                             color = MaterialTheme.colorScheme.secondary.copy(alpha = 0.1f),
                         )
+                        // Button to go to TeamEventsView labeled "Events"
                         Column(modifier = Modifier.clickable {
                             if (lookupViewModel.fetched.value) {
                                 navController.navigate(

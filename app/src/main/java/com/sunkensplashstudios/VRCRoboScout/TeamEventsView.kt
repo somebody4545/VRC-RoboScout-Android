@@ -130,7 +130,7 @@ fun TeamEventsView(teamEventsViewModel: TeamEventsViewModel = viewModel(), navCo
                                         modifier = Modifier
                                             .padding(5.dp)
                                             .clickable {
-                                                navController.navigate(EventViewDestination(event, team))
+                                                navController.navigate(EventViewDestination(event))
                                             }
                                     ) {
                                         Row {
