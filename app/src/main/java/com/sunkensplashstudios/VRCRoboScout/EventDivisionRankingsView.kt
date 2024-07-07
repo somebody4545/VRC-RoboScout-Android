@@ -4,14 +4,17 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBackIos
+import androidx.compose.material.icons.automirrored.filled.ArrowForwardIos
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardColors
 import androidx.compose.material3.CenterAlignedTopAppBar
@@ -39,16 +42,21 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import com.ramcosta.composedestinations.annotation.Destination
-import com.sunkensplashstudios.VRCRoboScout.ui.theme.*
-
+import com.ramcosta.composedestinations.navigation.navigate
+import com.sunkensplashstudios.VRCRoboScout.destinations.EventTeamMatchesViewDestination
+import com.sunkensplashstudios.VRCRoboScout.ui.theme.onTopContainer
+import com.sunkensplashstudios.VRCRoboScout.ui.theme.topContainer
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
+//class EventDivisionRankingsViewModel(private val state: SavedStateHandle): ViewModel() {
 class EventDivisionRankingsViewModel: ViewModel() {
     var event by mutableStateOf(Event())
     var division by mutableStateOf(Division())
+    var rankings by mutableStateOf(listOf<TeamRanking>())
+    var teamPerformanceRatings by mutableStateOf(mapOf<Int, TeamPerformanceRatings>())
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -56,14 +64,18 @@ class EventDivisionRankingsViewModel: ViewModel() {
 @Composable
 fun EventDivisionRankingsView(event: Event, division: Division, eventDivisionRankingsViewModel: EventDivisionRankingsViewModel = viewModel(), navController: NavController) {
 
-    var loading by remember { mutableStateOf(event.rankings[division] == null) }
+    var loading by remember { mutableStateOf(eventDivisionRankingsViewModel.rankings.isEmpty() || eventDivisionRankingsViewModel.teamPerformanceRatings.isEmpty()) }
 
     fun updateRankings() {
-        if (event.rankings[division] == null) {
-            loading = true
-        }
         CoroutineScope(Dispatchers.Default).launch {
-            event.fetchRankings(division)
+            try {
+                event.fetchRankings(division)
+                eventDivisionRankingsViewModel.rankings = (event.rankings[division] ?: emptyList()).toMutableList()
+                event.calculateTeamPerformanceRatings(division)
+                eventDivisionRankingsViewModel.teamPerformanceRatings = event.teamPerformanceRatings[division] ?: emptyMap()
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
             withContext(Dispatchers.Main) {
                 loading = false
             }
@@ -89,9 +101,11 @@ fun EventDivisionRankingsView(event: Event, division: Division, eventDivisionRan
                     Icon(
                         Icons.AutoMirrored.Filled.ArrowBackIos,
                         contentDescription = "Back",
-                        modifier = Modifier.padding(10.dp).clickable {
-                            navController.navigateUp()
-                        },
+                        modifier = Modifier
+                            .padding(10.dp)
+                            .clickable {
+                                navController.navigateUp()
+                            },
                         tint = MaterialTheme.colorScheme.onTopContainer
                     )
                 }
@@ -113,7 +127,7 @@ fun EventDivisionRankingsView(event: Event, division: Division, eventDivisionRan
             if (loading) {
                 LoadingView()
             }
-            else if ((event.rankings[division] ?: listOf()).isEmpty()) {
+            else if (eventDivisionRankingsViewModel.rankings.isEmpty()) {
                 NoDataView()
             }
             else {
@@ -133,14 +147,27 @@ fun EventDivisionRankingsView(event: Event, division: Division, eventDivisionRan
                             verticalArrangement = Arrangement.spacedBy(0.dp),
                             modifier = Modifier.padding(horizontal = 10.dp)
                         ) {
-                            (event.rankings[division] ?: emptyList()).reversed().forEach { ranking ->
+                            eventDivisionRankingsViewModel.rankings.reversed().forEach { ranking ->
+                                val performanceRatings = eventDivisionRankingsViewModel.teamPerformanceRatings[ranking.team.id]
                                 Row(
                                     modifier = Modifier
                                         .padding(vertical = 10.dp)
-                                        .fillMaxWidth(),
+                                        .fillMaxWidth()
+                                        .clickable {
+                                            navController.navigate(
+                                                EventTeamMatchesViewDestination(
+                                                    event,
+                                                    eventDivisionRankingsViewModel.event.getTeam(
+                                                        ranking.team.id
+                                                    ) ?: Team()
+                                                )
+                                            )
+                                        },
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
-                                    Column {
+                                    Column(
+                                        modifier = Modifier.weight(1.0f)
+                                    ) {
                                         Row {
                                             Text(
                                                 ranking.team.name,
@@ -149,7 +176,7 @@ fun EventDivisionRankingsView(event: Event, division: Division, eventDivisionRan
                                                 modifier = Modifier.width(80.dp)
                                             )
                                             Text(
-                                                event.getTeam(ranking.team.id)?.name ?: "Unknown",
+                                                eventDivisionRankingsViewModel.event.getTeam(ranking.team.id)?.name ?: "Unknown",
                                                 maxLines = 1,
                                                 overflow = TextOverflow.Ellipsis,
                                                 fontSize = 17.sp
@@ -169,9 +196,9 @@ fun EventDivisionRankingsView(event: Event, division: Division, eventDivisionRan
                                             }
                                             Column {
                                                 Row(
-                                                    modifier = Modifier.fillMaxWidth(),
                                                     horizontalArrangement = Arrangement.SpaceEvenly
                                                 ) {
+                                                    Spacer(modifier = Modifier.weight(0.5f))
                                                     Column(
                                                         verticalArrangement = Arrangement.spacedBy((-10).dp)
                                                     ) {
@@ -181,16 +208,17 @@ fun EventDivisionRankingsView(event: Event, division: Division, eventDivisionRan
                                                             color = Color.Gray
                                                         )
                                                         Text(
-                                                            "OPR: ",
+                                                            "OPR: ${performanceRatings?.opr.let { "%.1f".format(it) }}",
                                                             fontSize = 13.sp,
                                                             color = Color.Gray
                                                         )
                                                         Text(
-                                                            "HIGH: ",
+                                                            "HIGH: ${ranking.highScore}",
                                                             fontSize = 13.sp,
                                                             color = Color.Gray
                                                         )
                                                     }
+                                                    Spacer(modifier = Modifier.weight(0.5f))
                                                     Column(
                                                         verticalArrangement = Arrangement.spacedBy((-10).dp)
                                                     ) {
@@ -200,16 +228,17 @@ fun EventDivisionRankingsView(event: Event, division: Division, eventDivisionRan
                                                             color = Color.Gray
                                                         )
                                                         Text(
-                                                            "DPR: ",
+                                                            "DPR: ${performanceRatings?.dpr.let { "%.1f".format(it) }}",
                                                             fontSize = 13.sp,
                                                             color = Color.Gray
                                                         )
                                                         Text(
-                                                            "AVG: ",
+                                                            "AVG: ${ranking.averagePoints.let { "%.0f".format(it) }}",
                                                             fontSize = 13.sp,
                                                             color = Color.Gray
                                                         )
                                                     }
+                                                    Spacer(modifier = Modifier.weight(0.5f))
                                                     Column(
                                                         verticalArrangement = Arrangement.spacedBy((-10).dp)
                                                     ) {
@@ -219,12 +248,12 @@ fun EventDivisionRankingsView(event: Event, division: Division, eventDivisionRan
                                                             color = Color.Gray
                                                         )
                                                         Text(
-                                                            "CCWM: ",
+                                                            "CCWM: ${performanceRatings?.ccwm.let { "%.1f".format(it) }}",
                                                             fontSize = 13.sp,
                                                             color = Color.Gray
                                                         )
                                                         Text(
-                                                            "TTL: ",
+                                                            "TTL: ${ranking.totalPoints}",
                                                             fontSize = 13.sp,
                                                             color = Color.Gray
                                                         )
@@ -233,6 +262,13 @@ fun EventDivisionRankingsView(event: Event, division: Division, eventDivisionRan
                                             }
                                         }
                                     }
+                                    Spacer(modifier = Modifier.padding(horizontal = 10.dp))
+                                    Icon(
+                                        Icons.AutoMirrored.Filled.ArrowForwardIos,
+                                        modifier = Modifier.size(15.dp),
+                                        tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.3f),
+                                        contentDescription = "Show ${eventDivisionRankingsViewModel.event.getTeam(ranking.team.id)?.number} Match List"
+                                    )
                                 }
                                 HorizontalDivider(
                                     thickness = 0.5.dp,

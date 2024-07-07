@@ -53,9 +53,10 @@ import com.ramcosta.composedestinations.navigation.navigate
 import com.sunkensplashstudios.VRCRoboScout.destinations.EventDivisionViewDestination
 import com.sunkensplashstudios.VRCRoboScout.destinations.EventInformationViewDestination
 import com.sunkensplashstudios.VRCRoboScout.destinations.EventSkillsRankingsViewDestination
+import com.sunkensplashstudios.VRCRoboScout.destinations.EventTeamMatchesViewDestination
 import com.sunkensplashstudios.VRCRoboScout.destinations.EventTeamsViewDestination
-import com.sunkensplashstudios.VRCRoboScout.ui.theme.*
-
+import com.sunkensplashstudios.VRCRoboScout.ui.theme.onTopContainer
+import com.sunkensplashstudios.VRCRoboScout.ui.theme.topContainer
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -69,7 +70,7 @@ class EventViewModel: ViewModel() {
 @OptIn(ExperimentalMaterial3Api::class)
 @Destination
 @Composable
-fun EventView(eventViewModel: EventViewModel = viewModel(), navController: NavController, event: Event) {
+fun EventView(eventViewModel: EventViewModel = viewModel(), navController: NavController, event: Event, team: Team? = null) {
 
     fun getEventViewModel() {
         if (eventViewModelStore.getEventViewModel(event) != null) {
@@ -167,7 +168,6 @@ fun EventView(eventViewModel: EventViewModel = viewModel(), navController: NavCo
                 .padding(padding)
                 .fillMaxSize()
         ) {
-            getEventViewModel()
             if (eventViewModel.loading) {
                 Column(
                     modifier = Modifier.fillMaxSize(),
@@ -227,8 +227,9 @@ fun EventView(eventViewModel: EventViewModel = viewModel(), navController: NavCo
                                 horizontalArrangement = Arrangement.SpaceBetween,
                                 verticalAlignment = Alignment.CenterVertically,
                                 modifier = Modifier.clickable {
+                                    eventDataTransferManager.putEvent(eventViewModel.event)
                                     navController.navigate(
-                                        EventTeamsViewDestination(eventViewModel.event)
+                                        EventTeamsViewDestination(eventViewModel.event.id)
                                     )
                                 }
                             ) {
@@ -240,6 +241,31 @@ fun EventView(eventViewModel: EventViewModel = viewModel(), navController: NavCo
                                     tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.3f),
                                     contentDescription = "Show Event Teams"
                                 )
+                            }
+                            if (team != null) {
+                                HorizontalDivider(
+                                    thickness = 0.5.dp,
+                                    color = MaterialTheme.colorScheme.secondary.copy(alpha = 0.1f),
+                                )
+                                Row(
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    modifier = Modifier.clickable {
+                                        println("Team ID: ${team.id}, Number: ${team.number}")
+                                        navController.navigate(
+                                            EventTeamMatchesViewDestination(eventViewModel.event, team)
+                                        )
+                                    }
+                                ) {
+                                    Text("${team.number} Match List")
+                                    Spacer(modifier = Modifier.weight(1.0f))
+                                    Icon(
+                                        Icons.AutoMirrored.Filled.ArrowForwardIos,
+                                        modifier = Modifier.size(15.dp),
+                                        tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.3f),
+                                        contentDescription = "Show ${team.number} Match List"
+                                    )
+                                }
                             }
                         }
                     }
@@ -306,8 +332,9 @@ fun EventView(eventViewModel: EventViewModel = viewModel(), navController: NavCo
                                     horizontalArrangement = Arrangement.SpaceBetween,
                                     verticalAlignment = Alignment.CenterVertically,
                                     modifier = Modifier.clickable {
+                                        eventDataTransferManager.putEvent(eventViewModel.event)
                                         navController.navigate(
-                                            EventDivisionViewDestination(eventViewModel.event, division)
+                                            EventDivisionViewDestination(eventViewModel.event.id, division)
                                         )
                                     }
                                 ) {

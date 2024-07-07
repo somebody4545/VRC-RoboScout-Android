@@ -30,6 +30,7 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.MenuItemColors
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
@@ -58,7 +59,6 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.google.accompanist.navigation.material.ExperimentalMaterialNavigationApi
 import com.ramcosta.composedestinations.DestinationsNavHost
-import com.ramcosta.composedestinations.animations.defaults.RootNavGraphDefaultAnimations
 import com.ramcosta.composedestinations.animations.rememberAnimatedNavHostEngine
 import com.ramcosta.composedestinations.manualcomposablecalls.composable
 import com.ramcosta.composedestinations.navigation.navigate
@@ -69,11 +69,19 @@ import com.sunkensplashstudios.VRCRoboScout.destinations.SettingsViewDestination
 import com.sunkensplashstudios.VRCRoboScout.destinations.TrueSkillViewDestination
 import com.sunkensplashstudios.VRCRoboScout.destinations.WorldSkillsViewDestination
 import com.sunkensplashstudios.VRCRoboScout.ui.theme.VRCRoboScoutTheme
-import com.sunkensplashstudios.VRCRoboScout.ui.theme.*
-
+import com.sunkensplashstudios.VRCRoboScout.ui.theme.button
+import com.sunkensplashstudios.VRCRoboScout.ui.theme.onTopContainer
+import com.sunkensplashstudios.VRCRoboScout.ui.theme.topContainer
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlin.math.round
+
+fun Double.round(decimals: Int): Double {
+    var multiplier = 1.0
+    repeat(decimals) { multiplier *= 10 }
+    return round(this * multiplier) / multiplier
+}
 
 class UserSettings(context: Context) {
     private val userSettings: SharedPreferences =
@@ -166,6 +174,42 @@ class UserSettings(context: Context) {
         this.saveData("onTopContainerColor", Color.Unspecified.toArgb().toString())
         this.saveData("buttonColor", Color.Unspecified.toArgb().toString())
     }
+
+    fun setSelectedSeasonId(seasonId: Int) {
+        this.saveData("selectedSeasonId", seasonId.toString())
+        API.selectedSeasonId = seasonId
+    }
+
+    fun getSelectedSeasonId(): Int {
+        return this.getData("selectedSeasonId", BuildConfig.DEFAULT_V5_SEASON_ID.toString()).toInt()
+    }
+
+    fun setGradeLevel(gradeLevel: String) {
+        this.saveData("gradeLevel", gradeLevel)
+        API.gradeLevel = gradeLevel
+    }
+
+    fun getGradeLevel(): String {
+        return this.getData("gradeLevel", "High School")
+    }
+}
+
+class EventDataTransferManager {
+    private var events: MutableMap<Int, Event> = mutableMapOf()
+
+    fun putEvent(event: Event) {
+        events[event.id] = event
+    }
+
+    fun getEvent(id: Int): Event? {
+        val event = events[id]
+        //events.remove(id)
+        return event
+    }
+
+    fun clearEvents() {
+        events.clear()
+    }
 }
 
 class EventViewModelStore {
@@ -186,6 +230,7 @@ class EventViewModelStore {
 }
 
 val eventViewModelStore = EventViewModelStore()
+val eventDataTransferManager = EventDataTransferManager()
 
 data class TabBarItem(
     val title: String,
@@ -245,6 +290,18 @@ fun ImportingDataView() {
     }
 }
 
+@Composable
+fun disabledMenuItemColors(mt: MaterialTheme): MenuItemColors {
+    return MenuItemColors(
+        textColor = Color.Unspecified,
+        leadingIconColor = Color.Unspecified,
+        trailingIconColor = Color.Unspecified,
+        disabledTextColor = mt.colorScheme.onSurface,
+        disabledLeadingIconColor = Color.Unspecified,
+        disabledTrailingIconColor = Color.Unspecified
+    )
+}
+
 val viewModels = mapOf(
     "favorites_view" to FavoritesViewModel(),
     "lookup_view" to LookupViewModel()
@@ -252,24 +309,13 @@ val viewModels = mapOf(
 
 class RootActivity : ComponentActivity() {
 
-    @OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterialNavigationApi::class,
+    @OptIn(
+        ExperimentalMaterialNavigationApi::class,
         ExperimentalAnimationApi::class
     )
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
-            LaunchedEffect(Unit) {
-                if (!API.importedWS) {
-                    CoroutineScope(Dispatchers.Default).launch {
-                        API.updateWorldSkillsCache()
-                    }
-                }
-                if (!API.importedVDA) {
-                    CoroutineScope(Dispatchers.Default).launch {
-                        API.updateVDACache()
-                    }
-                }
-            }
 
             // setting up the individual tabs
             val favoritesTab = TabBarItem(title = "Favorites", direction = FavoritesViewDestination(), selectedIcon = Icons.Filled.Star, unselectedIcon = Icons.Outlined.StarOutline)
@@ -303,14 +349,35 @@ class RootActivity : ComponentActivity() {
                 "settings_view" to "Settings"
             )
 
+            val userSettings = UserSettings(LocalContext.current)
+
+            API.selectedSeasonId = userSettings.getSelectedSeasonId()
+            API.gradeLevel = userSettings.getGradeLevel()
+
             VRCRoboScoutTheme {
                 // A surface container using the 'background' color from the theme
                 Surface(
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
                 ) {
-                    val localContext = LocalContext.current
-                    val userSettings = UserSettings(localContext)
+
+                    LaunchedEffect(Unit) {
+                        if (API.seasonsCache.isEmpty()) {
+                            CoroutineScope(Dispatchers.Default).launch {
+                                API.generateseasonsCache()
+                            }
+                        }
+                        if (!API.importedWS) {
+                            CoroutineScope(Dispatchers.Default).launch {
+                                API.updateWorldSkillsCache()
+                            }
+                        }
+                        if (!API.importedVDA) {
+                            CoroutineScope(Dispatchers.Default).launch {
+                                API.updateVDACache()
+                            }
+                        }
+                    }
 
                     MaterialTheme.colorScheme.onTopContainer = if (userSettings.getOnTopContainerColor().isSpecified) userSettings.getOnTopContainerColor() else MaterialTheme.colorScheme.onPrimaryContainer
                     MaterialTheme.colorScheme.topContainer = if (userSettings.getMinimalisticMode()) MaterialTheme.colorScheme.background else ( if (userSettings.getTopContainerColor().isSpecified) userSettings.getTopContainerColor() else MaterialTheme.colorScheme.primaryContainer )
@@ -399,6 +466,16 @@ class RootActivity : ComponentActivity() {
 
 @Composable
 fun TabView(tabBarItems: List<TabBarItem>, navController: NavController, selectedTabIndex: Int, onSelectedTabIndexChange: (Int) -> Unit) {
+    val navBackStackEntry by navController.currentBackStackEntryAsState()
+    val currentRoute = navBackStackEntry?.destination?.route
+
+    LaunchedEffect(currentRoute) {
+        val index = tabBarItems.indexOfFirst { it.direction.route == currentRoute }
+        if (index != -1 && index != selectedTabIndex) {
+            onSelectedTabIndexChange(index)
+        }
+    }
+
     val localContext = LocalContext.current
     val userSettings = UserSettings(localContext)
     NavigationBar(

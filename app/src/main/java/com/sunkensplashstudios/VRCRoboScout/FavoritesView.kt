@@ -27,13 +27,13 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.mutableStateMapOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.ViewModel
@@ -44,8 +44,10 @@ import com.ramcosta.composedestinations.navigation.navigate
 import com.sunkensplashstudios.VRCRoboScout.destinations.EventViewDestination
 import com.sunkensplashstudios.VRCRoboScout.destinations.LookupViewDestination
 import com.sunkensplashstudios.VRCRoboScout.destinations.TeamEventsViewDestination
-import com.sunkensplashstudios.VRCRoboScout.ui.theme.*
-
+import com.sunkensplashstudios.VRCRoboScout.helperviews.EventRow
+import com.sunkensplashstudios.VRCRoboScout.ui.theme.button
+import com.sunkensplashstudios.VRCRoboScout.ui.theme.onTopContainer
+import com.sunkensplashstudios.VRCRoboScout.ui.theme.topContainer
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -180,6 +182,7 @@ fun FavoritesView(favoritesViewModel: FavoritesViewModel = viewModels["favorites
                                 "Find a team",
                                 modifier = Modifier.padding(vertical = 10.dp, horizontal = 0.dp).fillMaxWidth().clickable {
                                     navController.navigate(LookupViewDestination())
+                                    (viewModels["lookup_view"] as LookupViewModel).lookupType = mutableStateOf("Teams")
                                     onSelectedTabIndexChange(3)
                                 },
                                 color = MaterialTheme.colorScheme.button
@@ -248,48 +251,7 @@ fun FavoritesView(favoritesViewModel: FavoritesViewModel = viewModels["favorites
                                         }
                                     ) {
                                         val event = favoritesViewModel.eventSKUMap[sku] ?: Event(sku, false)
-                                        Row(
-                                            verticalAlignment = Alignment.CenterVertically
-                                        ) {
-                                            Column(
-                                                verticalArrangement = Arrangement.SpaceBetween,
-                                                modifier = Modifier
-                                                    .padding(5.dp)
-                                                    .clickable {
-                                                        navController.navigate(
-                                                            EventViewDestination(
-                                                                event
-                                                            )
-                                                        )
-                                                    }
-                                            ) {
-                                                Row {
-                                                    Text(
-                                                        event.name,
-                                                        maxLines = 1,
-                                                        overflow = TextOverflow.Ellipsis
-                                                    )
-                                                }
-                                                Row {
-                                                    Text(
-                                                        event.location.toString(),
-                                                        fontSize = 13.sp
-                                                    )
-                                                    Spacer(modifier = Modifier.weight(1.0f))
-                                                    Text(
-                                                        RoboScoutAPI.formatDate(event.startDate),
-                                                        fontSize = 13.sp
-                                                    )
-                                                }
-                                            }
-                                        }
-                                        Spacer(modifier = Modifier.weight(1.0f))
-                                        Icon(
-                                            Icons.AutoMirrored.Filled.ArrowForwardIos,
-                                            modifier = Modifier.size(15.dp),
-                                            tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.3f),
-                                            contentDescription = "Show Event"
-                                        )
+                                        EventRow(navController, event)
                                     }
                                     if (favoriteEvents.sortedBy {
                                             favoritesViewModel.eventSKUMap[it]?.startDate
@@ -307,6 +269,7 @@ fun FavoritesView(favoritesViewModel: FavoritesViewModel = viewModels["favorites
                                     modifier = Modifier.padding(vertical = 5.dp, horizontal = 5.dp).fillMaxWidth()
                                         .clickable {
                                             navController.navigate(LookupViewDestination())
+                                            (viewModels["lookup_view"] as LookupViewModel).lookupType = mutableStateOf("Events")
                                             onSelectedTabIndexChange(3)
                                         },
                                     color = MaterialTheme.colorScheme.button
